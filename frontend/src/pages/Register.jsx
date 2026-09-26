@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authAPI } from '../api';
+import { authAPI, getErrorMessage } from '../api';
 import './Auth.css';
 
-function Register({ onLogin }) {
+function Register({ onLogin, themeLabel, onToggleTheme }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,6 +16,14 @@ function Register({ onLogin }) {
     e.preventDefault();
     setError('');
 
+    if (!name.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -23,11 +31,11 @@ function Register({ onLogin }) {
 
     setLoading(true);
     try {
-      const response = await authAPI.register(name, email, password);
+      const response = await authAPI.register(name.trim(), email.trim(), password);
       onLogin(response.data.token, response.data.user);
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
+      setError(getErrorMessage(err, 'Registration failed'));
     } finally {
       setLoading(false);
     }
@@ -35,44 +43,66 @@ function Register({ onLogin }) {
 
   return (
     <div className="auth-container">
+      <button
+        onClick={onToggleTheme}
+        className="theme-toggle-btn theme-toggle-float"
+        title="Theme: Light → Dark → Black → System"
+      >
+        {themeLabel}
+      </button>
       <div className="auth-card">
         <h1>💰 Expense Tracker</h1>
-        <h2>Register</h2>
-        {error && <div className="error-message">{error}</div>}
-        <form onSubmit={handleSubmit}>
+        <h2>Create your account</h2>
+        {error && (
+          <div className="error-message" role="alert">
+            {error}
+          </div>
+        )}
+        <form onSubmit={handleSubmit} noValidate>
           <input
             type="text"
             placeholder="Full Name"
+            aria-label="Full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
             required
           />
           <input
             type="email"
             placeholder="Email"
+            aria-label="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
             required
           />
           <input
             type="password"
-            placeholder="Password"
+            placeholder="Password (min 6 characters)"
+            aria-label="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            minLength={6}
             required
           />
           <input
             type="password"
             placeholder="Confirm Password"
+            aria-label="Confirm password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
             required
           />
           <button type="submit" disabled={loading}>
-            {loading ? 'Registering...' : 'Register'}
+            {loading ? 'Creating account…' : 'Create Account'}
           </button>
         </form>
-        <p>Already have an account? <Link to="/login">Login</Link></p>
+        <p>
+          Already have an account? <Link to="/login">Login</Link>
+        </p>
       </div>
     </div>
   );

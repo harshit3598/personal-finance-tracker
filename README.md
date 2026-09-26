@@ -129,6 +129,11 @@ Project1/
 └── README.md
 ```
 
+## 📚 Documentation
+
+- **`BACKEND_ROUTING.md`** — how routing works: the 6 route groups, all 25 endpoints, the JWT auth middleware, the thin-route pattern, and how to add a new endpoint
+- **`FRONTEND_ARCHITECTURE.md`** — how the React app is built: boot sequence, state & props, the `api.js` network layer, the 5 feature components, theming, and how a click reaches the backend
+
 ## 📊 Expense Categories
 
 - 🍔 Food

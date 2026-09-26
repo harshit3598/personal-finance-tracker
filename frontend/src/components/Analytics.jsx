@@ -1,53 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Pie, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
-import { analyticsAPI } from '../api';
+import { analyticsAPI, getErrorMessage } from '../api';
 import './Analytics.css';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
-function Analytics({ expenses }) {
+const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444', '#64748b'];
+
+function Analytics({ expenses, theme }) {
+  const isDark = theme === 'dark' || theme === 'black';
+  const tickColor = isDark ? '#94a3b8' : '#666';
+  const gridColor = isDark ? 'rgba(148, 163, 184, 0.15)' : 'rgba(0, 0, 0, 0.08)';
+  const sliceBorder = isDark ? '#1e293b' : '#fff';
   const [categoryBreakdown, setCategoryBreakdown] = useState({});
   const [savingsInsights, setSavingsInsights] = useState(null);
   const [monthRange, setMonthRange] = useState('3');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [monthRange]);
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
+    setError('');
+    setLoading(true);
     try {
-      setLoading(true);
       const [breakdown, insights] = await Promise.all([
         analyticsAPI.getCategoryBreakdown(monthRange),
         analyticsAPI.getSavingsInsights(monthRange)
       ]);
-      setCategoryBreakdown(breakdown.data);
+      setCategoryBreakdown(breakdown.data || {});
       setSavingsInsights(insights.data);
     } catch (err) {
-      console.error('Failed to load analytics:', err);
+      setError(getErrorMessage(err, 'Failed to load analytics'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [monthRange]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   // Prepare pie chart data
   const pieData = {
     labels: Object.keys(categoryBreakdown),
     datasets: [{
       data: Object.values(categoryBreakdown),
-      backgroundColor: [
-        '#FF6384',
-        '#36A2EB',
-        '#FFCE56',
-        '#4BC0C0',
-        '#9966FF',
-        '#FF9F40',
-        '#FF6384',
-        '#C9CBCF',
-      ],
-      borderColor: '#fff',
+      backgroundColor: CHART_COLORS,
+      borderColor: sliceBorder,
       borderWidth: 2,
     }]
   };
@@ -71,6 +70,7 @@ function Analytics({ expenses }) {
     plugins: {
       legend: {
         position: 'bottom',
+        labels: { color: tickColor }
       }
     }
   };
@@ -79,16 +79,23 @@ function Analytics({ expenses }) {
     responsive: true,
     maintainAspectRatio: true,
     scales: {
+      x: {
+        ticks: { color: tickColor },
+        grid: { color: gridColor }
+      },
       y: {
         beginAtZero: true,
         ticks: {
+          color: tickColor,
           callback: (value) => `$${value}`
-        }
+        },
+        grid: { color: gridColor }
       }
     },
     plugins: {
       legend: {
         display: true,
+        labels: { color: tickColor }
       }
     }
   };
@@ -98,14 +105,31 @@ function Analytics({ expenses }) {
       <h2>💡 Financial Analytics & Insights</h2>
 
       <div className="time-selector">
-        <label>View data for past:</label>
-        <select value={monthRange} onChange={(e) => setMonthRange(e.target.value)}>
+        <label htmlFor="analytics-range">View data for past:</label>
+        <select id="analytics-range" value={monthRange} onChange={(e) => setMonthRange(e.target.value)}>
           <option value="1">1 Month</option>
           <option value="3">3 Months</option>
           <option value="6">6 Months</option>
           <option value="12">12 Months</option>
         </select>
+        <button onClick={loadAnalytics} className="ghost-btn btn-sm" disabled={loading}>
+          {loading ? 'Refreshing…' : '↻ Refresh'}
+        </button>
       </div>
+
+      {error && (
+        <div className="error-panel" role="alert">
+          <p>⚠️ {error}</p>
+          <button onClick={loadAnalytics} className="primary-btn">Try Again</button>
+        </div>
+      )}
+
+      {loading && !savingsInsights && (
+        <div className="loading-panel" role="status">
+          <div className="spinner" />
+          <p>Crunching your numbers…</p>
+        </div>
+      )}
 
       <div className="analytics-grid">
         <div className="chart-container">
@@ -127,7 +151,7 @@ function Analytics({ expenses }) {
         </div>
       </div>
 
-      {savingsInsights && (
+      {savingsInsights && !loading && (
         <div className="insights-section">
           <h3>🎯 Savings Opportunities & Insights</h3>
 
@@ -173,7 +197,7 @@ function Analytics({ expenses }) {
               {savingsInsights.topCategories?.map((cat, idx) => (
                 <li key={idx}>
                   <span className="category-name">{cat.category}</span>
-                  <span className="category-amount">${cat.amount.toFixed(2)}</span>
+                  <span className="category-amount">${Number(cat.amount).toFixed(2)}</span>
                   <span className="category-percent">({cat.percentage}%)</span>
                 </li>
               ))}
